@@ -1187,8 +1187,13 @@ class DPOTrainer(Trainer):
             else:
                 model_kwargs["attention_mask"] = attention_mask
 
+            # model_kwargs["return_dict"] = True
             outputs = model(input_ids, **model_kwargs)
-            logits = outputs.logits
+
+            if isinstance(outputs, tuple):
+                logits = outputs[0]  # Usually, the first item is logits
+            else:
+                logits = outputs.logits
 
             # Offset the logits by one to align with the labels
             labels = torch.roll(input_ids, shifts=-1, dims=1)

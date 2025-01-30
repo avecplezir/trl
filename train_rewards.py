@@ -15,6 +15,9 @@ import wandb
 @dataclass
 class Args:
     model_name: str = "Qwen/Qwen2.5-0.5B-Instruct" # facebook/opt-350m gpt2 google/flan-t5-small
+    """model name"""
+    dataset_idx: int = 0
+    """dataset index"""
     torch_deterministic: bool = False
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
     seed: int = 1
@@ -39,30 +42,31 @@ if __name__ == "__main__":
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     # ToDo: replace with our actual datasets, define the eval datasets as well
-    datasets = [
-        load_dataset("trl-lib/ultrafeedback_binarized", split="test"),
-        load_dataset("Anthropic/hh-rlhf", split="test")
-    ]
+    dataset = load_dataset("trl-lib/ultrafeedback_binarized", split="test").select(range(20))
 
-    for i, dataset in enumerate(datasets):
-        group_name = f"{args.model_name}-Rewards--{i}"
+    group_name = f"{args.model_name}-Rewards-{args.dataset_idx}"
+    run_name = f"{group_name}-{args.seed}"
 
-        model = AutoModelForSequenceClassification.from_pretrained(args.model_name, num_labels=1)
-        model.config.pad_token_id = tokenizer.pad_token_id
+    model = AutoModelForSequenceClassification.from_pretrained(args.model_name, num_labels=1)
+    model.config.pad_token_id = tokenizer.pad_token_id
 
-        training_args = RewardConfig(output_dir=group_name,
-                                     per_device_train_batch_size=args.per_device_train_batch_size,
-                                     num_train_epochs=args.num_train_epochs)
+    training_args = RewardConfig(output_dir=group_name,
+                                 per_device_train_batch_size=args.per_device_train_batch_size,
+                                 num_train_epochs=args.num_train_epochs)
 
-        # ToDo: log the dataset name or index, that should come from the dataset itself
-        wandb.init(project=args.wandb_project_name, entity=args.wandb_entity,
-                   group=group_name, name=group_name, config=vars(training_args))
-        trainer = RewardTrainer(
-            args=training_args,
-            model=model,
-            processing_class=tokenizer,
-            train_dataset=dataset,
-        )
-        trainer.train()
-        # trainer.save_model()
-        wandb.finish()
+    # ToDo: log the dataset name or index, that should come from the dataset itself
+    wandb.init(project=args.wandb_project_name, entity=args.wandb_entity,
+               group=group_name, name=run_name, config=vars(training_args))
+    trainer = RewardTrainer(
+        args=training_args,
+        model=model,
+        processing_class=tokenizer,
+        train_dataset=dataset,
+        eval_dataset=dataset,
+    )
+    trainer.train()
+    eval_results = trainer.evaluate()
+    wandb.log(eval_results)
+    trainer.save_model(f"Reward_Models/{group_name}/{run_name}-dataset-{args.dataset_idx}")
+
+    wandb.finish()

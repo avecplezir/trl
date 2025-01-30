@@ -9,6 +9,7 @@
 _tmp*
 tmp*
 tags
+slurm_scripts/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

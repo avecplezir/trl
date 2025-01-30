@@ -1,5 +1,22 @@
 # TRL - Transformer Reinforcement Learning
 
+use python 3.9 
+install trl and transformers from the source
+
+```bash
+pip install accelerate
+pip install datasets
+pip install rich
+pip install git+https://github.com/huggingface/trl.git
+pip install trl[peft]
+pip install bitsandbytes loralib
+pip install git+https://github.com/huggingface/transformers.git@main
+pip install wandb
+```
+
+Todo: 1) check if model weights are changing while training in between datasets 2) check if logits are logits when output is a tuple 3) check if the model is saved
+
+```bash
 <div style="text-align: center">
 <img src="https://huggingface.co/datasets/trl-lib/documentation-images/resolve/main/trl_banner_dark.png" alt="TRL Banner">
 </div>
