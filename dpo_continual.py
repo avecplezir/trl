@@ -94,12 +94,19 @@ if __name__ == "__main__":
         tokenizer.pad_token = tokenizer.eos_token
 
     # ToDo: replace with our actual datasets, define the eval datasets as well
-    datasets = [
-        Dataset.from_dict(data),
-        Dataset.from_dict(data),
-        load_dataset("trl-lib/ultrafeedback_binarized", split="test").select(range(10)),
-        load_dataset("trl-lib/ultrafeedback_binarized", split="test").select(range(10, 20)),
-        load_dataset("Anthropic/hh-rlhf", split="test").select(range(10))
+    train_datasets = [
+        # Dataset.from_dict(data),
+        # Dataset.from_dict(data),
+        # load_dataset("trl-lib/ultrafeedback_binarized", split="test").select(range(10)),
+        # load_dataset("trl-lib/ultrafeedback_binarized", split="test").select(range(10, 20)),
+        # load_dataset("Anthropic/hh-rlhf", split="test").select(range(10))
+        load_dataset("trl-lib/ultrafeedback_binarized", split="train"),
+        load_dataset("Anthropic/hh-rlhf", split="train")
+                ]
+
+    test_datasets = [
+        load_dataset("trl-lib/ultrafeedback_binarized", split="test"),
+        load_dataset("Anthropic/hh-rlhf", split="test")
                 ]
 
     training_args = DPOConfig(output_dir=args.output_dir,
@@ -107,30 +114,32 @@ if __name__ == "__main__":
                               num_train_epochs=args.num_train_epochs,
                               evaluation_strategy="epoch",
                               per_device_eval_batch_size=args.per_device_train_batch_size,
-                              # learning_rate=1e-2,
                               )
 
     wandb.init(project=args.wandb_project_name, entity=args.wandb_entity, group=group_name, name=run_name, config=vars(training_args))
 
-    for i, dataset in enumerate(datasets):
+    for i, (train_dataset, test_dataset) in enumerate(zip(train_datasets, test_datasets)):
         trainer = DPOTrainer(model=model, args=training_args,
-                             train_dataset=dataset,
-                             eval_dataset=dataset,
+                             train_dataset=train_dataset,
+                             eval_dataset=test_dataset,
                              processing_class=tokenizer,
                              )
 
+        print('running evaluation on dataset', i)
         eval_results = trainer.evaluate()
         eval_results = {"f_"+k: v for k, v in eval_results.items()}
         # ToDo: log the dataset name or index, that should come from the dataset itself
         eval_results['dataset'] = i
         wandb.log(eval_results)
 
+        print('running training on dataset', i)
         trainer.train()
 
         # Save the model
         save_path = f"{args.output_dir}/dataset-{i}/{run_name}"
         trainer.save_model(save_path)
 
+    print('running evaluation on dataset', i)
     eval_results = trainer.evaluate()
     eval_results = {"f_" + k: v for k, v in eval_results.items()}
     eval_results['dataset'] = i
